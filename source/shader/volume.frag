@@ -119,7 +119,7 @@ void main()
 
         // update the loop termination condition
         inside_volume  = inside_volume_bounds(sampling_pos);
-        
+
         counter++;
     }
 
@@ -136,8 +136,11 @@ void main()
         // get sample
         float s = get_sample_data(sampling_pos);
 
-        // dummy code
-        dst = vec4(light_diffuse_color, 1.0);
+        // first-hit isosurface
+        if (s - iso_value > 0) {
+          dst = vec4(0.6, 0.6, 0.6, 1.0); // light grey
+          break; // after first hit
+        }
 
         // increment the ray sampling position
         sampling_pos += ray_increment;
