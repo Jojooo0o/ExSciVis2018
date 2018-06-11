@@ -147,6 +147,7 @@ void main()
 
         // increment the ray sampling position
         sampling_pos += ray_increment;
+
 #if TASK == 13 // Binary Search
         float next_sample = get_sample_data(sampling_pos); // get next sample
         if (s - iso_value < 0 && next_sample - iso_value > 0) {
@@ -154,25 +155,23 @@ void main()
           vec3 end_pos   = sampling_pos;
           vec3 mid_pos;
 
-          float hit = s;
+          while(start_pos.x <= end_pos.x || start_pos.y <= end_pos.y) {
+            mid_pos = start_pos + (end_pos-start_pos) / 2;
 
-          while(start_pos.x <= end_pos.x) {
-            mid_pos = (start_pos + end_pos) / 2;
-
-            if (hit - iso_value > 0)
-              end_pos = mid_pos;
-
-            else if (hit - iso_value < 0)
-              start_pos = mid_pos;
-
+            if (s - iso_value == 0){
+              dst = texture(transfer_texture, vec2(s, s));
+              break;
+            }
+            else if (s - iso_value < 0)
+              start_pos = mid_pos + 1;
             else {
               //binary_search = false;
-              dst = vec4(0.6, 0.6, 0.6, 1.0); // light grey
-              break;
+              end_pos = mid_pos - 1;
             }
           }
         }
 #endif
+
 #if ENABLE_LIGHTNING == 1 // Add Shading
         IMPLEMENTLIGHT;
 #if ENABLE_SHADOWING == 1 // Add Shadows
