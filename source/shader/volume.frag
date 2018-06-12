@@ -141,7 +141,7 @@ void main()
 
         // first-hit isosurface
         if (s - iso_value > 0) {
-          dst = vec4(0.6, 0.6, 0.6, 1.0); // light grey
+          dst = texture(transfer_texture, vec2(s, s));
           break; // after first hit
         }
 
