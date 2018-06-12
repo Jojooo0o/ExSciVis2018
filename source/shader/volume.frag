@@ -32,23 +32,20 @@ uniform float   light_ref_coef;
 
 
 bool
-inside_volume_bounds(const in vec3 sampling_position)
-{
+inside_volume_bounds(const in vec3 sampling_position) {
     return (   all(greaterThanEqual(sampling_position, vec3(0.0)))
             && all(lessThanEqual(sampling_position, max_bounds)));
 }
 
 
 float
-get_sample_data(vec3 in_sampling_pos)
-{
+get_sample_data(vec3 in_sampling_pos) {
     vec3 obj_to_tex = vec3(1.0) / max_bounds;
     return texture(volume_texture, in_sampling_pos * obj_to_tex).r;
 
 }
 
-void main()
-{
+void main() {
     /// One step trough the volume
     vec3 ray_increment      = normalize(ray_entry_position - camera_location) * sampling_distance;
     /// Position in Volume
@@ -70,8 +67,7 @@ void main()
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
-    while (inside_volume)
-    {
+    while (inside_volume) {
         // get sample
         float s = get_sample_data(sampling_pos);
 
@@ -103,8 +99,7 @@ void main()
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
-    while (inside_volume)
-    {
+    while (inside_volume) {
         // get sample
         float s = get_sample_data(sampling_pos);
 
@@ -134,8 +129,7 @@ void main()
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
-    while (inside_volume)
-    {
+    while (inside_volume) {
         // get sample
         float s = get_sample_data(sampling_pos);
         prev_sampling_pos = sampling_pos; // save sampling pos for binary search
@@ -144,7 +138,7 @@ void main()
           binary = true;
 
         // first-hit isosurface
-        if (s - iso_value > 0 && !binary) {
+        if (s > iso_value && !binary) {
           dst = texture(transfer_texture, vec2(s, s));
           break;
         }
@@ -160,12 +154,11 @@ void main()
           vec3 mid_pos;
           int iterations = 0;
 
-          while(start_pos.x <= end_pos.x && iterations <= 64) { //|| start_pos.y <= end_pos.y) {
+          while(iterations <= 64) { 
             mid_pos = start_pos + (end_pos-start_pos) / 2;
             float mid_sample = get_sample_data(mid_pos);
-            ++iterations;
 
-            if (mid_sample - iso_value == 0 || iterations == 64){
+            if (mid_sample == iso_value || iterations == 64){
               dst = texture(transfer_texture, vec2(mid_sample, mid_sample));
               //dst = vec4(0.0, 1.0, 0.0, 1.0);
               break;
@@ -173,9 +166,11 @@ void main()
             else if (mid_sample < iso_value) {
               start_pos = mid_pos;
             }
-            else {
+            else { // mid_sample > iso_value
               end_pos = mid_pos;
             }
+
+            ++iterations;
           }
         }
 #endif
