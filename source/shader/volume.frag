@@ -129,7 +129,7 @@ void main()
 
 #if TASK == 12 || TASK == 13
     vec3 prev_sampling_pos;
-    bool first_hit = false;
+    bool binary = false;
 
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
@@ -140,10 +140,13 @@ void main()
         float s = get_sample_data(sampling_pos);
         prev_sampling_pos = sampling_pos; // save sampling pos for binary search
 
+        if (TASK == 13)
+          binary = true;
+
         // first-hit isosurface
-        if (s - iso_value > 0 && !first_hit) {
+        if (s - iso_value > 0 && !binary) {
           dst = texture(transfer_texture, vec2(s, s));
-          first_hit = true;
+          break;
         }
 
         // increment the ray sampling position
@@ -151,24 +154,27 @@ void main()
 
 #if TASK == 13 // Binary Search
         float next_sample = get_sample_data(sampling_pos); // get next sample
-        if (s - iso_value < 0 && next_sample - iso_value > 0) {
+        if (s <= iso_value && next_sample >= iso_value) {
           vec3 start_pos = prev_sampling_pos;
           vec3 end_pos   = sampling_pos;
           vec3 mid_pos;
+          int iterations = 0;
 
-          while(start_pos.x <= end_pos.x || start_pos.y <= end_pos.y) {
+          while(start_pos.x <= end_pos.x && iterations <= 64) { //|| start_pos.y <= end_pos.y) {
             mid_pos = start_pos + (end_pos-start_pos) / 2;
+            float mid_sample = get_sample_data(mid_pos);
+            ++iterations;
 
-            if (s - iso_value == 0){
-              dst = vec4(0.0, 1.0, 0.0, 1.0);
+            if (mid_sample - iso_value == 0 || iterations == 64){
+              dst = texture(transfer_texture, vec2(mid_sample, mid_sample));
+              //dst = vec4(0.0, 1.0, 0.0, 1.0);
               break;
             }
-            else if (s - iso_value < 0) {
-              start_pos = mid_pos + 1;
+            else if (mid_sample < iso_value) {
+              start_pos = mid_pos;
             }
             else {
-              //binary_search = false;
-              end_pos = mid_pos - 1;
+              end_pos = mid_pos;
             }
           }
         }
