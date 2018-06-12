@@ -129,6 +129,7 @@ void main()
 
 #if TASK == 12 || TASK == 13
     vec3 prev_sampling_pos;
+    bool first_hit = false;
 
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
@@ -140,9 +141,9 @@ void main()
         prev_sampling_pos = sampling_pos; // save sampling pos for binary search
 
         // first-hit isosurface
-        if (s - iso_value > 0) {
+        if (s - iso_value > 0 && !first_hit) {
           dst = texture(transfer_texture, vec2(s, s));
-          break; // after first hit
+          first_hit = true;
         }
 
         // increment the ray sampling position
@@ -159,11 +160,12 @@ void main()
             mid_pos = start_pos + (end_pos-start_pos) / 2;
 
             if (s - iso_value == 0){
-              dst = texture(transfer_texture, vec2(s, s));
+              dst = vec4(0.0, 1.0, 0.0, 1.0);
               break;
             }
-            else if (s - iso_value < 0)
+            else if (s - iso_value < 0) {
               start_pos = mid_pos + 1;
+            }
             else {
               //binary_search = false;
               end_pos = mid_pos - 1;
