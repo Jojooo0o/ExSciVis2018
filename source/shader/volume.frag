@@ -124,7 +124,8 @@ void main() {
 
 #if TASK == 12 || TASK == 13
     vec3 prev_sampling_pos;
-    bool binary = false;
+    bool  binary  = false;
+    float epsilon = 0.0001; // threshold for floating point operations
 
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
@@ -148,19 +149,22 @@ void main() {
 
 #if TASK == 13 // Binary Search
         float next_sample = get_sample_data(sampling_pos); // get next sample
+
         if (s <= iso_value && next_sample >= iso_value) {
           vec3 start_pos = prev_sampling_pos;
           vec3 end_pos   = sampling_pos;
           vec3 mid_pos;
           int iterations = 0;
 
-          while(iterations <= 64) { 
+          while(iterations <= 64) {
             mid_pos = start_pos + (end_pos-start_pos) / 2;
-            float mid_sample = get_sample_data(mid_pos);
 
-            if (mid_sample == iso_value || iterations == 64){
+            float mid_sample = get_sample_data(mid_pos);
+            float difference = mid_sample - iso_value;
+
+            if (mid_sample == iso_value || iterations == 64 ||
+                difference < epsilon && difference > -epsilon) {
               dst = texture(transfer_texture, vec2(mid_sample, mid_sample));
-              //dst = vec4(0.0, 1.0, 0.0, 1.0);
               break;
             }
             else if (mid_sample < iso_value) {
