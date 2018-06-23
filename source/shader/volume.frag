@@ -45,6 +45,18 @@ get_sample_data(vec3 in_sampling_pos) {
 
 }
 
+vec3
+get_gradient(vec3 sampling_pos) {
+  // Central Difference: Dx = ( f(x+1, y, z) - f(x-1, y, z)) / 2
+  vec3 dir = max_bounds / volume_dimensions;
+
+  float Dx = (get_sample_data(vec3(sampling_pos.x + dir.x, sampling_pos.yz)) - get_sample_data(vec3(sampling_pos.x - dir.x, sampling_pos.yz))) / 2;
+  float Dy = (get_sample_data(vec3(sampling_pos.x, sampling_pos.y + dir.y, sampling_pos.z)) - get_sample_data(vec3(sampling_pos.x, sampling_pos.y - dir.y, sampling_pos.z))) / 2;
+  float Dz = (get_sample_data(vec3(sampling_pos.xy, sampling_pos.z + dir.z)) - get_sample_data(vec3(sampling_pos.xy, sampling_pos.z - dir.z))) / 2;
+
+  return vec3(Dx, Dy, Dz);
+}
+
 void main() {
     /// One step trough the volume
     vec3 ray_increment      = normalize(ray_entry_position - camera_location) * sampling_distance;
@@ -147,6 +159,7 @@ void main() {
         // increment the ray sampling position
         sampling_pos += ray_increment;
 
+
 #if TASK == 13 // Binary Search
         float next_sample = get_sample_data(sampling_pos); // get next sample
 
@@ -176,20 +189,30 @@ void main() {
 
             ++iterations;
           }
-        }
 #endif
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-        IMPLEMENTLIGHT;
+  vec3 normal = normalize(get_gradient(mid_pos)) * -1;
+  vec3 light = normalize(light_position - mid_pos);
+  float lambertian = max(dot(normal, light), 0.0);
+  vec3 halfway  = normalize(light + normal);
+  float specular_Angle = max(dot(halfway, normal), 0.0);
+  float specular = 0.0;
+  if(lambertian > 0.0) {
+    specular = pow(specular_Angle, light_ref_coef);
+  }
+  dst = vec4(light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color, 1);
 #if ENABLE_SHADOWING == 1 // Add Shadows
         IMPLEMENTSHADOW;
 #endif
 #endif
-
+        break;
+      }
         // update the loop termination condition
         inside_volume = inside_volume_bounds(sampling_pos);
     }
 #endif
+
 
 #if TASK == 31
     // the traversal loop,
