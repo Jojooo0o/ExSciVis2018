@@ -168,6 +168,7 @@ void main() {
           vec3 end_pos   = sampling_pos;
           vec3 mid_pos;
           int iterations = 0;
+          bool in_shadow = false;
 
           while(iterations <= 64) {
             mid_pos = start_pos + (end_pos-start_pos) / 2;
@@ -189,25 +190,44 @@ void main() {
 
             ++iterations;
           }
-#endif
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-  vec3 normal = normalize(get_gradient(mid_pos)) * -1;
-  vec3 light = normalize(light_position - mid_pos);
-  float lambertian = max(dot(normal, light), 0.0);
-  vec3 halfway  = normalize(light + normal);
-  float specular_Angle = max(dot(halfway, normal), 0.0);
-  float specular = 0.0;
-  if(lambertian > 0.0) {
-    specular = pow(specular_Angle, light_ref_coef);
-  }
-  dst = vec4(light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color, 1);
-#if ENABLE_SHADOWING == 1 // Add Shadows
-        IMPLEMENTSHADOW;
+      if(!in_shadow) {
+        vec3 normal = normalize(get_gradient(mid_pos)) * -1;
+        vec3 light = normalize(light_position - mid_pos);
+        float lambertian = max(dot(normal, light), 0.0);
+        vec3 halfway  = normalize(light + normal);
+        float specular_Angle = max(dot(halfway, normal), 0.0);
+        float specular = 0.0;
+        if(lambertian > 0.0) {
+          specular = pow(specular_Angle, light_ref_coef);
+        }
+        dst = vec4(light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color, 1);
+      }
 #endif
+#if ENABLE_SHADOWING == 1 // Add Shadows
+  vec3 light_dir = normalize(light_position - mid_pos);
+  vec3 shadow_step = light_dir * sampling_distance;
+  vec3 shadow_pos = mid_pos;
+  float mid_sample = get_sample_data(mid_pos);
+  iterations = int(length(light_dir)/sampling_distance);
+  //breaks de world
+  int i = 0;
+  while(i < iterations) {
+    shadow_pos += shadow_step;
+    float shadow_sample = get_sample_data(shadow_pos);
+    ++i;
+    if(shadow_sample < iso_value && mid_sample > iso_value || shadow_sample > iso_value && mid_sample < iso_value){
+      dst = vec4(light_ambient_color, 1);
+      break;
+    }
+
+  }
+  in_shadow = true;
 #endif
         break;
       }
+#endif
         // update the loop termination condition
         inside_volume = inside_volume_bounds(sampling_pos);
     }
