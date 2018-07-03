@@ -208,8 +208,9 @@ void main() {
 #if ENABLE_SHADOWING == 1 // Add Shadows
   vec3 light_dir = normalize(light_position - mid_pos);
   vec3 shadow_step = light_dir * sampling_distance;
-  vec3 shadow_pos = mid_pos;
-  float mid_sample = get_sample_data(mid_pos);
+  float epsilon = 0.1;
+  vec3 shadow_pos = mid_pos + shadow_step;
+  float mid_sample = get_sample_data(mid_pos + shadow_step * epsilon);
   iterations = int(length(light_dir)/sampling_distance);
   //breaks de world
   int i = 0;
@@ -238,27 +239,60 @@ void main() {
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
-    while (inside_volume)
-    {
-        // get sample
+    bool front_back = false;
+    float transparency = 1.0;
+    float epsilon = 0.0001; // threshold for floating point operations
+    while (inside_volume) {
+      float s = get_sample_data(sampling_pos);
+      vec4 color = texture(transfer_texture, vec2(s, s));
 #if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
-        IMPLEMENT;
-#else
-        float s = get_sample_data(sampling_pos);
+        color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
 #endif
         // dummy code
-        dst = vec4(light_specular_color, 1.0);
+        //dst = vec4(light_specular_color, 1.0);
 
         // increment the ray sampling position
-        sampling_pos += ray_increment;
+        //sampling_pos += ray_increment;
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-        IMPLEMENT;
+        vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
+        vec3 light = normalize(light_position - sampling_pos);
+        float lambertian = max(dot(normal, light), 0.0);
+        vec3 halfway  = normalize(light + normal);
+        float specular_Angle = max(dot(halfway, normal), 0.0);
+        float specular = 0.0;
+        if(lambertian > 0.0) {
+          specular = pow(specular_Angle, light_ref_coef);
+        }
+        dst.rgb += light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color;
 #endif
+      if(front_back) {
+        dst.rgb += color.rgb * transparency * color.a;
+        transparency *= (1.0 - color.a);
+        dst.a = 1.0 - transparency;
+        if(transparency <= epsilon){
+          break;
+        }
+      }
+        sampling_pos += ray_increment;
 
         // update the loop termination condition
+
         inside_volume = inside_volume_bounds(sampling_pos);
-    }
+      }
+      if(!front_back) {
+        sampling_pos -= ray_increment;
+        inside_volume = inside_volume_bounds(sampling_pos);
+        while(inside_volume) {
+          float s = get_sample_data(sampling_pos);
+          vec4 color = texture(transfer_texture, vec2(s, s));
+          dst.rgb = color.rgb * color.a + dst.rgb * (1.0 - color.a);
+          dst.a += color.a;
+          sampling_pos -= ray_increment;
+          inside_volume = inside_volume_bounds(sampling_pos);
+        }
+      }
+
 #endif
 
     // return the calculated color value
