@@ -211,7 +211,7 @@ struct Manipulator
     glm::mat4 matrix(Window const& g_win)
     {
         m_mouse = g_win.mousePosition();
-        
+
         if (ImGui::IsMouseDown(GLFW_MOUSE_BUTTON_LEFT)) {
             if (!m_mouse_button_pressed[0]) {
                 m_mouse_button_pressed[0] = 1;
@@ -308,7 +308,7 @@ void UpdateImGui()
     const double current_time = glfwGetTime();
     io.DeltaTime = (float)(current_time - time);
     time = current_time;
-    
+
     // Setup inputs
     // (we already got mouse wheel, keyboard keys & characters from glfw callbacks polled in glfwPollEvents())
     double mouse_x, mouse_y;
@@ -345,7 +345,7 @@ void showGUI(){
     const float ms_per_frame_avg = ms_per_frame_accum / 120;
 
     if (ImGui::CollapsingHeader("Task", 0, true, true))
-    {        
+    {
         if (ImGui::TreeNode("Introduction")){
             ImGui::RadioButton("Max Intensity Projection", &g_task_chosen, 10);
             ImGui::RadioButton("Average Intensity Projection", &g_task_chosen, 11);
@@ -357,19 +357,29 @@ void showGUI(){
             ImGui::RadioButton("Binary Search", &g_task_chosen, 13);
             ImGui::SliderFloat("Iso Value", &g_iso_value, 0.0f, 1.0f, "%.8f", 1.0f);
             ImGui::TreePop();
-        }       
- 
+        }
+
         if (ImGui::TreeNode("Direct Volume Rendering")){
             ImGui::RadioButton("Compositing", &g_task_chosen, 31);
             ImGui::TreePop();
         }
 
-        
+
         g_reload_shader ^= ImGui::Checkbox("1", &g_lighting_toggle); ImGui::SameLine();
         g_task_chosen == 31 || g_task_chosen == 12 || g_task_chosen == 13 ? ImGui::Text("Enable Lighting") : ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.2f, 0.5f), "Enable Lighting");
 
+        /*g_reload_shader ^= ImGui::Checkbox("2", &g_shadow_toggle); ImGui::SameLine();
+        g_task_chosen == 31 || g_task_chosen == 12 || g_task_chosen == 13 ? ImGui::Text("Enable Shadows") : ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.2f, 0.5f), "Enable Shadows");*/
+
+        // use button 2 to toggle compositing in task 31
         g_reload_shader ^= ImGui::Checkbox("2", &g_shadow_toggle); ImGui::SameLine();
-        g_task_chosen == 31 || g_task_chosen == 12 || g_task_chosen == 13 ? ImGui::Text("Enable Shadows") : ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.2f, 0.5f), "Enable Shadows");
+        if (g_task_chosen == g_task_chosen == 12 || g_task_chosen == 13) {
+          ImGui::Text("Enable Shadows"); // ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.2f, 0.5f), "Enable Shadows");
+        } else if (g_task_chosen == 31) {
+          ImGui::Text("Enable Back_To_Front"); // ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.2f, 0.5f), "Enable Back_To_Front");
+        } else {
+          ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.2f, 0.5f), "Enable Shadows");
+        }
 
         g_reload_shader ^= ImGui::Checkbox("3", &g_opacity_correction_toggle); ImGui::SameLine();
         g_task_chosen == 31 ? ImGui::Text("Opacity Correction") : ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.2f, 0.5f), "Opacity Correction");
@@ -449,7 +459,7 @@ void showGUI(){
             ImGui::TextColored(text_color, "Shader Ok");
         }
 
-        
+
         ImGui::TextWrapped(g_error_message.c_str());
 
         g_reload_shader ^= ImGui::Button("Reload Shader");
@@ -480,11 +490,11 @@ void showGUI(){
     }
 
     if (ImGui::CollapsingHeader("Window options"))
-    {        
+    {
         if (ImGui::TreeNode("Window Size")){
             const char* items[] = { "640x480", "720x576", "1280x720", "1920x1080", "1920x1200", "2048x1536" };
             static int item2 = -1;
-            bool press = ImGui::Combo("Window Size", &item2, items, IM_ARRAYSIZE(items));    
+            bool press = ImGui::Combo("Window Size", &item2, items, IM_ARRAYSIZE(items));
 
             if (press){
                 glm::ivec2 win_re_size = glm::ivec2(640, 480);
@@ -510,13 +520,13 @@ void showGUI(){
                     break;
                 default:
                     break;
-                }                
-                g_win.resize(win_re_size);                
+                }
+                g_win.resize(win_re_size);
             }
 
             ImGui::TreePop();
         }
-        
+
         if (ImGui::TreeNode("Background Color")){
             ImGui::ColorEdit3("BC", &g_background_color[0]);
             ImGui::TreePop();
@@ -634,7 +644,7 @@ void showGUI(){
                 }
             }
 
-            //delete             
+            //delete
             bool delete_entry_from_tf = false;
             delete_entry_from_tf ^= ImGui::Button(std::string("Delete: ").append(ss.str()).c_str());
 
@@ -787,7 +797,7 @@ int main(int argc, char* argv[])
     g_transfer_texture = createTexture2D(255u, 1u, (char*)&g_transfer_fun.get_RGBA_transfer_function_buffer()[0]);
 
     // loading actual raytracing shader code (volume.vert, volume.frag)
-    // edit volume.frag to define the result of our volume raycaster  
+    // edit volume.frag to define the result of our volume raycaster
     try {
         g_volume_program = loadShaders(g_file_vertex_shader, g_file_fragment_shader,
             g_task_chosen,
@@ -813,7 +823,7 @@ int main(int argc, char* argv[])
         if (!first_frame > 0.0){
 
             // exit window with escape
-            if (ImGui::IsKeyPressed(GLFW_KEY_ESCAPE)) {                
+            if (ImGui::IsKeyPressed(GLFW_KEY_ESCAPE)) {
                 g_win.stop();
             }
 
@@ -856,20 +866,20 @@ int main(int argc, char* argv[])
             if (ImGui::IsKeyPressed(GLFW_KEY_R)) {
                 g_reload_shader = true;
             }
-                        
+
             if (ImGui::IsMouseDown(GLFW_MOUSE_BUTTON_LEFT) || ImGui::IsMouseDown(GLFW_MOUSE_BUTTON_MIDDLE) || ImGui::IsMouseDown(GLFW_MOUSE_BUTTON_RIGHT)) {
                 sampling_fact = g_sampling_distance_fact_move;
-            }   
-                       
+            }
+
         }
         // to add key inputs:
         // check ImGui::IsKeyPressed(KEY_NAME)
         // - KEY_NAME - key name      (GLFW_KEY_A ... GLFW_KEY_Z)
 
         //if (ImGui::IsKeyPressed(GLFW_KEY_X)){
-        //    
+        //
         //        ... do something
-        //    
+        //
         //}
 
         /// reload shader if key R ist pressed
@@ -926,9 +936,9 @@ int main(int argc, char* argv[])
 
             glActiveTexture(GL_TEXTURE1);
             updateTexture2D(g_transfer_texture, 255u, 1u, (char*)&g_transfer_fun.get_RGBA_transfer_function_buffer()[0]);
-            
+
         }
-        
+
         if (g_bilinear_interpolation){
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -1013,7 +1023,7 @@ int main(int argc, char* argv[])
             g_cube.draw();
         glUseProgram(0);
 
-        //IMGUI ROUTINE begin    
+        //IMGUI ROUTINE begin
         ImGuiIO& io = ImGui::GetIO();
         io.MouseWheel = 0;
         mousePressed[0] = mousePressed[1] = false;
@@ -1025,7 +1035,7 @@ int main(int argc, char* argv[])
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
         ImGui::Render();
         //IMGUI ROUTINE end
-        
+
         if (g_show_transfer_function)
             g_transfer_fun.draw_texture(g_transfer_function_pos, g_transfer_function_size, g_transfer_texture);
         glBindTexture(GL_TEXTURE_2D, 0);

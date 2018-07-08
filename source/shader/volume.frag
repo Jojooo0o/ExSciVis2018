@@ -248,6 +248,10 @@ void main() {
     float epsilon = 0.0001; // threshold for floating point operations
 
     while (inside_volume) {
+
+// Hack: button label changes when compositing is selected
+#if ENABLE_SHADOWING == 0 // Front_to_Back compositing
+
       float s = get_sample_data(sampling_pos);
       vec4 color = texture(transfer_texture, vec2(s, s));
 
@@ -256,7 +260,7 @@ void main() {
 #endif
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-        vec3 normal = normalize(get_gradient(sampling_pos)) * -1; 
+        vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
         vec3 light = normalize(light_position - sampling_pos);
         float lambertian = max(dot(normal, light), 0.0);
         vec3 halfway  = normalize(light + normal);
@@ -269,7 +273,7 @@ void main() {
 
         dst.rgb += (light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color) * transparency * color.a;
 #endif
-      if(front_back) {
+
         dst.rgb += color.rgb * transparency * color.a;
         transparency *= (1.0 - color.a);
         dst.a = 1.0 - transparency;
@@ -277,19 +281,41 @@ void main() {
         if(transparency <= epsilon){
           break;
         }
-      }
+#endif
         sampling_pos += ray_increment;
         // update the loop termination condition
         inside_volume = inside_volume_bounds(sampling_pos);
       }
+      
 
-      if(!front_back) {
+#if ENABLE_SHADOWING == 1 // Back_to_Front compositing
+
         sampling_pos -= ray_increment; // step back to last position "inside_volume"
         inside_volume = inside_volume_bounds(sampling_pos);
 
         while(inside_volume) {
           float s = get_sample_data(sampling_pos);
           vec4 color = texture(transfer_texture, vec2(s, s));
+
+#if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
+        color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
+#endif
+
+#if ENABLE_LIGHTNING == 1 // Add Shading
+          vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
+          vec3 light = normalize(light_position - sampling_pos);
+          float lambertian = max(dot(normal, light), 0.0);
+          vec3 halfway  = normalize(light + normal);
+          float specular_Angle = max(dot(halfway, normal), 0.0);
+          float specular = 0.0;
+
+          if(lambertian > 0.0) {
+            specular = pow(specular_Angle, light_ref_coef);
+          }
+
+          dst.rgb += (light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color) * transparency * color.a;
+#endif
+
           dst.rgb = color.rgb * color.a + dst.rgb * (1.0 - color.a);
           dst.a += color.a;
 
@@ -297,7 +323,8 @@ void main() {
           // update the loop termination condition
           inside_volume = inside_volume_bounds(sampling_pos);
         }
-      }
+#endif
+
 #endif
 
     // return the calculated color value
