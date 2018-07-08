@@ -57,6 +57,24 @@ get_gradient(vec3 sampling_pos) {
   return vec3(Dx, Dy, Dz);
 }
 
+vec3
+calculate_light(vec3 sampling_pos) {
+  vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
+  vec3 light = normalize(light_position - sampling_pos);
+
+  float lambertian = max(dot(normal, light), 0.0);
+  vec3 halfway  = normalize(light + normal);
+
+  float specular_Angle = max(dot(halfway, normal), 0.0);
+  float specular = 0.0;
+
+  if(lambertian > 0.0) {
+    specular = pow(specular_Angle, light_ref_coef);
+  }
+
+  return (light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color);
+}
+
 void main() {
     /// One step trough the volume
     vec3 ray_increment      = normalize(ray_entry_position - camera_location) * sampling_distance;
@@ -193,20 +211,10 @@ void main() {
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
       if(!in_shadow) {
-        vec3 normal = normalize(get_gradient(mid_pos)) * -1;
-        vec3 light = normalize(light_position - mid_pos);
-        float lambertian = max(dot(normal, light), 0.0);
-        vec3 halfway  = normalize(light + normal);
-        float specular_Angle = max(dot(halfway, normal), 0.0);
-        float specular = 0.0;
-
-        if(lambertian > 0.0) {
-          specular = pow(specular_Angle, light_ref_coef);
-        }
-
-        dst = vec4(light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color, 1);
+        dst = vec4(calculate_light(mid_pos), 1);
       }
 #endif
+
 #if ENABLE_SHADOWING == 1 // Add Shadows
   vec3 light_dir = normalize(light_position - mid_pos);
   vec3 shadow_step = light_dir * sampling_distance;
@@ -240,13 +248,12 @@ void main() {
 
 
 #if TASK == 31
-    // the traversal loop,
-    // termination when the sampling position is outside volume boundarys
-    // another termination condition for early ray termination is added
     bool front_back = true; // front_to_back when true otherwise back_to_front compositing
     float transparency = 1.0;
     float epsilon = 0.0001; // threshold for floating point operations
 
+    // Front-To-Back: Increment sampling position untill inside_volume is false
+    // Back-To-Front: As in Front-To-Back, then step back to the last position inside volume and decrement sampling position again
     while (inside_volume) {
 
 // Hack: button label changes when compositing is selected
@@ -256,73 +263,50 @@ void main() {
       vec4 color = texture(transfer_texture, vec2(s, s));
 
 #if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
-        color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
+      color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
 #endif
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-        vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
-        vec3 light = normalize(light_position - sampling_pos);
-        float lambertian = max(dot(normal, light), 0.0);
-        vec3 halfway  = normalize(light + normal);
-        float specular_Angle = max(dot(halfway, normal), 0.0);
-        float specular = 0.0;
-
-        if(lambertian > 0.0) {
-          specular = pow(specular_Angle, light_ref_coef);
-        }
-
-        dst.rgb += (light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color) * transparency * color.a;
+      dst.rgb += calculate_light(sampling_pos) * transparency * color.a;
 #endif
 
-        dst.rgb += color.rgb * transparency * color.a;
-        transparency *= (1.0 - color.a);
-        dst.a = 1.0 - transparency;
+      dst.rgb += color.rgb * transparency * color.a;
+      transparency *= (1.0 - color.a);
+      dst.a = 1.0 - transparency;
 
-        if(transparency <= epsilon){
+      if(transparency <= epsilon){
           break;
-        }
-#endif
-        sampling_pos += ray_increment;
-        // update the loop termination condition
-        inside_volume = inside_volume_bounds(sampling_pos);
       }
-      
+#endif
+      sampling_pos += ray_increment;
+      // update the loop termination condition
+      inside_volume = inside_volume_bounds(sampling_pos);
+    }
+
 
 #if ENABLE_SHADOWING == 1 // Back_to_Front compositing
+    sampling_pos -= ray_increment; // step back to last position "inside_volume"
+    inside_volume = inside_volume_bounds(sampling_pos);
 
-        sampling_pos -= ray_increment; // step back to last position "inside_volume"
-        inside_volume = inside_volume_bounds(sampling_pos);
-
-        while(inside_volume) {
-          float s = get_sample_data(sampling_pos);
-          vec4 color = texture(transfer_texture, vec2(s, s));
+    while(inside_volume) {
+      float s = get_sample_data(sampling_pos);
+      vec4 color = texture(transfer_texture, vec2(s, s));
 
 #if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
-        color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
+      color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
 #endif
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-          vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
-          vec3 light = normalize(light_position - sampling_pos);
-          float lambertian = max(dot(normal, light), 0.0);
-          vec3 halfway  = normalize(light + normal);
-          float specular_Angle = max(dot(halfway, normal), 0.0);
-          float specular = 0.0;
-
-          if(lambertian > 0.0) {
-            specular = pow(specular_Angle, light_ref_coef);
-          }
-
-          dst.rgb += (light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color) * transparency * color.a;
+      dst.rgb += calculate_light(sampling_pos) * transparency * color.a;
 #endif
 
-          dst.rgb = color.rgb * color.a + dst.rgb * (1.0 - color.a);
-          dst.a += color.a;
+      dst.rgb = color.rgb * color.a + dst.rgb * (1.0 - color.a);
+      dst.a += color.a;
 
-          sampling_pos -= ray_increment;
-          // update the loop termination condition
-          inside_volume = inside_volume_bounds(sampling_pos);
-        }
+      sampling_pos -= ray_increment;
+      // update the loop termination condition
+      inside_volume = inside_volume_bounds(sampling_pos);
+    }
 #endif
 
 #endif
