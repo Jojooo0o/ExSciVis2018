@@ -215,7 +215,6 @@ void main() {
   float mid_sample = get_sample_data(mid_pos + shadow_step * epsilon);
 
   iterations = int(length(light_dir)/sampling_distance);
-  //breaks de world
   int i = 0;
 
   while(i < iterations) {
@@ -244,7 +243,7 @@ void main() {
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
-    bool front_back = false;
+    bool front_back = true; // front_to_back when true otherwise back_to_front compositing
     float transparency = 1.0;
     float epsilon = 0.0001; // threshold for floating point operations
 
@@ -257,7 +256,7 @@ void main() {
 #endif
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-        vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
+        vec3 normal = normalize(get_gradient(sampling_pos)) * -1; 
         vec3 light = normalize(light_position - sampling_pos);
         float lambertian = max(dot(normal, light), 0.0);
         vec3 halfway  = normalize(light + normal);
@@ -268,7 +267,7 @@ void main() {
           specular = pow(specular_Angle, light_ref_coef);
         }
 
-        dst.rgb += light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color;
+        dst.rgb += (light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color) * transparency * color.a;
 #endif
       if(front_back) {
         dst.rgb += color.rgb * transparency * color.a;
