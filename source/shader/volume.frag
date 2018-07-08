@@ -248,17 +248,21 @@ void main() {
 
 
 #if TASK == 31
-    bool front_back = true; // front_to_back when true otherwise back_to_front compositing
-    float transparency = 1.0;
-    float epsilon = 0.0001; // threshold for floating point operations
 
-    // Front-To-Back: Increment sampling position untill inside_volume is false
-    // Back-To-Front: As in Front-To-Back, then step back to the last position inside volume and decrement sampling position again
+#if ENABLE_SHADOWING == 1  // Hack: button label changes when compositing is selected (Back-To-Front)
     while (inside_volume) {
+      sampling_pos += ray_increment;
+      // update the loop termination condition
+      inside_volume = inside_volume_bounds(sampling_pos);
+    }
+    sampling_pos -= ray_increment; // step back to last position "inside_volume"
+    inside_volume = inside_volume_bounds(sampling_pos);
+#endif
 
-// Hack: button label changes when compositing is selected
-#if ENABLE_SHADOWING == 0 // Front_to_Back compositing
+float transparency = 1.0;
+float epsilon = 0.0001; // threshold for floating point operations
 
+    while (inside_volume) {
       float s = get_sample_data(sampling_pos);
       vec4 color = texture(transfer_texture, vec2(s, s));
 
@@ -267,8 +271,10 @@ void main() {
 #endif
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
-      dst.rgb += calculate_light(sampling_pos) * transparency * color.a;
+      color.rgb += calculate_light(sampling_pos) * transparency * color.a;
 #endif
+
+#if ENABLE_SHADOWING == 0 // Front_to_Back compositing
 
       dst.rgb += color.rgb * transparency * color.a;
       transparency *= (1.0 - color.a);
@@ -277,37 +283,17 @@ void main() {
       if(transparency <= epsilon){
           break;
       }
-#endif
+
       sampling_pos += ray_increment;
-      // update the loop termination condition
-      inside_volume = inside_volume_bounds(sampling_pos);
-    }
-
-
-#if ENABLE_SHADOWING == 1 // Back_to_Front compositing
-    sampling_pos -= ray_increment; // step back to last position "inside_volume"
-    inside_volume = inside_volume_bounds(sampling_pos);
-
-    while(inside_volume) {
-      float s = get_sample_data(sampling_pos);
-      vec4 color = texture(transfer_texture, vec2(s, s));
-
-#if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
-      color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
-#endif
-
-#if ENABLE_LIGHTNING == 1 // Add Shading
-      dst.rgb += calculate_light(sampling_pos) * transparency * color.a;
-#endif
-
+#else                   // Back_to_Front compositing
       dst.rgb = color.rgb * color.a + dst.rgb * (1.0 - color.a);
       dst.a += color.a;
 
       sampling_pos -= ray_increment;
+#endif
       // update the loop termination condition
       inside_volume = inside_volume_bounds(sampling_pos);
     }
-#endif
 
 #endif
 
