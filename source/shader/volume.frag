@@ -199,9 +199,11 @@ void main() {
         vec3 halfway  = normalize(light + normal);
         float specular_Angle = max(dot(halfway, normal), 0.0);
         float specular = 0.0;
+
         if(lambertian > 0.0) {
           specular = pow(specular_Angle, light_ref_coef);
         }
+
         dst = vec4(light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color, 1);
       }
 #endif
@@ -211,19 +213,22 @@ void main() {
   float epsilon = 0.1;
   vec3 shadow_pos = mid_pos + shadow_step;
   float mid_sample = get_sample_data(mid_pos + shadow_step * epsilon);
+
   iterations = int(length(light_dir)/sampling_distance);
   //breaks de world
   int i = 0;
+
   while(i < iterations) {
     shadow_pos += shadow_step;
     float shadow_sample = get_sample_data(shadow_pos);
     ++i;
+
     if(shadow_sample < iso_value && mid_sample > iso_value || shadow_sample > iso_value && mid_sample < iso_value){
       dst = vec4(light_ambient_color, 1);
       break;
     }
-
   }
+
   in_shadow = true;
 #endif
         break;
@@ -242,17 +247,14 @@ void main() {
     bool front_back = false;
     float transparency = 1.0;
     float epsilon = 0.0001; // threshold for floating point operations
+
     while (inside_volume) {
       float s = get_sample_data(sampling_pos);
       vec4 color = texture(transfer_texture, vec2(s, s));
+
 #if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
         color.a = 1 - pow((1 - color.a), 255 * sampling_distance / sampling_distance_ref);
 #endif
-        // dummy code
-        //dst = vec4(light_specular_color, 1.0);
-
-        // increment the ray sampling position
-        //sampling_pos += ray_increment;
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
         vec3 normal = normalize(get_gradient(sampling_pos)) * -1;
@@ -261,38 +263,42 @@ void main() {
         vec3 halfway  = normalize(light + normal);
         float specular_Angle = max(dot(halfway, normal), 0.0);
         float specular = 0.0;
+
         if(lambertian > 0.0) {
           specular = pow(specular_Angle, light_ref_coef);
         }
+
         dst.rgb += light_ambient_color + lambertian * light_diffuse_color + specular * light_specular_color;
 #endif
       if(front_back) {
         dst.rgb += color.rgb * transparency * color.a;
         transparency *= (1.0 - color.a);
         dst.a = 1.0 - transparency;
+
         if(transparency <= epsilon){
           break;
         }
       }
         sampling_pos += ray_increment;
-
         // update the loop termination condition
-
         inside_volume = inside_volume_bounds(sampling_pos);
       }
+
       if(!front_back) {
-        sampling_pos -= ray_increment;
+        sampling_pos -= ray_increment; // step back to last position "inside_volume"
         inside_volume = inside_volume_bounds(sampling_pos);
+
         while(inside_volume) {
           float s = get_sample_data(sampling_pos);
           vec4 color = texture(transfer_texture, vec2(s, s));
           dst.rgb = color.rgb * color.a + dst.rgb * (1.0 - color.a);
           dst.a += color.a;
+
           sampling_pos -= ray_increment;
+          // update the loop termination condition
           inside_volume = inside_volume_bounds(sampling_pos);
         }
       }
-
 #endif
 
     // return the calculated color value
